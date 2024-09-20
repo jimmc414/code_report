@@ -73,3 +73,6 @@ python code_analysis_tool.py --source main.py --output analysis_results --verbos
 - **Class Visualization**: Image file (`.png`)
 - **Semantic Analysis**: Text file (`.txt`)
 - **Test Case Generation**: Python file (`.py`)
+
+  ![image](https://github.com/user-attachments/assets/84d541d0-ca5a-418f-a974-fcd89457ecf5)
+
