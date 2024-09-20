@@ -74,5 +74,6 @@ python code_analysis_tool.py --source main.py --output analysis_results --verbos
 - **Semantic Analysis**: Text file (`.txt`)
 - **Test Case Generation**: Python file (`.py`)
 
-  ![image](https://github.com/user-attachments/assets/84d541d0-ca5a-418f-a974-fcd89457ecf5)
+![image](https://github.com/user-attachments/assets/e86222af-473b-4a8a-8a5e-ed4815643f3f)
+
 
