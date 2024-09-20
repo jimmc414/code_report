@@ -11,23 +11,24 @@ from rich.progress import track
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich import print
+from pathlib import Path
 
 # Verbosity levels (can be changed later)
 VERBOSITY_LEVEL = 1  # 1: minimal, 2: detailed
 
 # Output formats (can be changed later)
 AST_OUTPUT_FORMAT = '.txt'
-CFG_OUTPUT_FORMAT = '.png'
-CALL_GRAPH_OUTPUT_FORMAT = '.png'
+CFG_OUTPUT_FORMAT = '.dot'
+CALL_GRAPH_OUTPUT_FORMAT = '.dot'
 DATA_FLOW_OUTPUT_FORMAT = '.txt'
 LINT_OUTPUT_FORMAT = '.txt'
 COMPLEXITY_OUTPUT_FORMAT = '.txt'
-DEPENDENCY_GRAPH_FORMAT = '.png'
+DEPENDENCY_GRAPH_FORMAT = '.dot'
 COVERAGE_OUTPUT_FORMAT = '.html'
 MEMORY_PROFILE_OUTPUT_FORMAT = '.txt'
 PERFORMANCE_PROFILE_OUTPUT_FORMAT = '.txt'
 TYPE_CHECK_OUTPUT_FORMAT = '.txt'
-CLASS_VISUALIZATION_FORMAT = '.png'
+CLASS_VISUALIZATION_FORMAT = '.dot'
 SEMANTIC_ANALYSIS_FORMAT = '.txt'
 TEST_GENERATION_FORMAT = '.py'
 
@@ -127,8 +128,7 @@ def run_call_graph_analysis(code_path, console):
     console.print("[bold]3. Call Graph Analysis[/bold]")
     call_graph_output_file = os.path.join(os.getcwd(), 'call_graph' + CALL_GRAPH_OUTPUT_FORMAT)
     try:
-        # Use pydeps to generate a call graph
-        cmd = ['pydeps', code_path, '--noshow', '--max-bacon=2', '--show-deps', '-o', call_graph_output_file]
+        cmd = ['pydeps', code_path, '--noshow', '--max-bacon=2', '--show-deps', '-T', 'dot', '-o', call_graph_output_file]
         subprocess.run(cmd, check=True)
         console.print(f"Call graph saved to [green]{call_graph_output_file}[/green]")
     except Exception as e:
@@ -174,7 +174,7 @@ def run_dependency_graph_analysis(code_path, console):
     console.print("[bold]7. Dependency Graph Analysis[/bold]")
     dependency_graph_output_file = os.path.join(os.getcwd(), 'dependency_graph' + DEPENDENCY_GRAPH_FORMAT)
     try:
-        cmd = ['pydeps', code_path, '--noshow', '--max-bacon=2', '-o', dependency_graph_output_file]
+        cmd = ['pydeps', code_path, '--noshow', '--max-bacon=2', '-T', 'dot', '-o', dependency_graph_output_file]
         subprocess.run(cmd, check=True)
         console.print(f"Dependency graph saved to [green]{dependency_graph_output_file}[/green]")
     except Exception as e:
@@ -187,7 +187,7 @@ def run_code_coverage_analysis(code_path, console):
         # Check if tests directory exists
         tests_dir = os.path.join(code_path, 'tests')
         if os.path.exists(tests_dir):
-            cmd = ['coverage', 'run', '-m', 'unittest', 'discover', tests_dir]
+            cmd = ['coverage', 'run', '-m', 'unittest', 'discover', '-s', tests_dir]
             subprocess.run(cmd, check=True)
             cmd = ['coverage', 'html', '-d', coverage_output_dir]
             subprocess.run(cmd, check=True)
@@ -199,10 +199,17 @@ def run_code_coverage_analysis(code_path, console):
 
 def run_memory_usage_profiling(code_path, console):
     console.print("[bold]9. Memory Usage Profiling[/bold]")
-    main_script = Prompt.ask("Enter the path to the main Python script to run for memory profiling")
+    main_script = Prompt.ask("Enter the path to the main Python script to run for memory profiling (or press Enter to skip)", default="")
+    if main_script.strip() == "":
+        console.print("[yellow]No script provided. Skipping memory usage profiling.[/yellow]")
+        return
+    main_script_path = os.path.join(code_path, main_script)
+    if not os.path.isfile(main_script_path):
+        console.print(f"[red]The script '{main_script}' does not exist in the provided repository.[/red]")
+        return
     memory_profile_output_file = os.path.join(os.getcwd(), 'memory_profile' + MEMORY_PROFILE_OUTPUT_FORMAT)
     try:
-        cmd = ['mprof', 'run', '--include-children', 'python', main_script]
+        cmd = ['mprof', 'run', '--include-children', 'python', main_script_path]
         console.print("[yellow]Running the program for memory profiling. Please interact with it as needed.[/yellow]")
         subprocess.run(cmd, check=True)
         cmd = ['mprof', 'plot', '--output', memory_profile_output_file]
@@ -213,10 +220,17 @@ def run_memory_usage_profiling(code_path, console):
 
 def run_execution_profiling(code_path, console):
     console.print("[bold]10. Execution Profiling (Time and Performance)[/bold]")
-    main_script = Prompt.ask("Enter the path to the main Python script to run for execution profiling")
+    main_script = Prompt.ask("Enter the path to the main Python script to run for execution profiling (or press Enter to skip)", default="")
+    if main_script.strip() == "":
+        console.print("[yellow]No script provided. Skipping execution profiling.[/yellow]")
+        return
+    main_script_path = os.path.join(code_path, main_script)
+    if not os.path.isfile(main_script_path):
+        console.print(f"[red]The script '{main_script}' does not exist in the provided repository.[/red]")
+        return
     performance_profile_output_file = os.path.join(os.getcwd(), 'performance_profile' + PERFORMANCE_PROFILE_OUTPUT_FORMAT)
     try:
-        cmd = ['python', '-m', 'cProfile', '-o', performance_profile_output_file, main_script]
+        cmd = ['python', '-m', 'cProfile', '-o', performance_profile_output_file, main_script_path]
         console.print("[yellow]Running the program for execution profiling. Please interact with it as needed.[/yellow]")
         subprocess.run(cmd, check=True)
         console.print(f"Performance profile report saved to [green]{performance_profile_output_file}[/green]")
@@ -225,10 +239,17 @@ def run_execution_profiling(code_path, console):
 
 def run_runtime_type_checking(code_path, console):
     console.print("[bold]11. Runtime Type Checking[/bold]")
-    main_script = Prompt.ask("Enter the path to the main Python script to run with runtime type checking")
+    main_script = Prompt.ask("Enter the path to the main Python script to run with runtime type checking (or press Enter to skip)", default="")
+    if main_script.strip() == "":
+        console.print("[yellow]No script provided. Skipping runtime type checking.[/yellow]")
+        return
+    main_script_path = os.path.join(code_path, main_script)
+    if not os.path.isfile(main_script_path):
+        console.print(f"[red]The script '{main_script}' does not exist in the provided repository.[/red]")
+        return
     type_check_output_file = os.path.join(os.getcwd(), 'runtime_type_checking' + TYPE_CHECK_OUTPUT_FORMAT)
     try:
-        cmd = ['python', '-m', 'typeguard', main_script]
+        cmd = ['python', '-m', 'typeguard', main_script_path]
         console.print("[yellow]Running the program with runtime type checking. Please interact with it as needed.[/yellow]")
         with open(type_check_output_file, 'w') as f:
             subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, check=False)
@@ -239,10 +260,10 @@ def run_runtime_type_checking(code_path, console):
 def run_class_inheritance_visualization(code_path, console):
     console.print("[bold]12. Class Inheritance/Composition Visualization[/bold]")
     try:
-        cmd = ['pyreverse', code_path, '-o', 'png', '-p', 'classes']
+        cmd = ['pyreverse', code_path, '-o', 'dot', '-p', 'classes']
         subprocess.run(cmd, check=True)
-        # The output files are 'classes_classes.png' and 'classes_packages.png'
-        diagram_files = ['classes_classes.png', 'classes_packages.png']
+        # The output files are 'classes_classes.dot' and 'classes_packages.dot'
+        diagram_files = ['classes_classes.dot', 'classes_packages.dot']
         for diagram in diagram_files:
             diagram_path = os.path.join(os.getcwd(), diagram)
             if os.path.exists(diagram_path):
