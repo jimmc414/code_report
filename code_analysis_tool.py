@@ -9,6 +9,7 @@ import shutil
 from rich.console import Console
 from rich.progress import track
 from rich.panel import Panel
+from rich.prompt import Prompt
 from rich import print
 
 # Verbosity levels (can be changed later)
@@ -78,14 +79,13 @@ def main():
 def check_requirements(console):
     console.print("[bold]Checking requirements...[/bold]")
     required_tools = [
-        'pyan3',
         'mypy',
         'pylint',
         'radon',
         'pydeps',
         'coverage',
         'pyreverse',
-        'dot'  # Graphviz
+        'dot',  # Graphviz
     ]
     missing_tools = []
     for tool in required_tools:
@@ -100,7 +100,7 @@ def check_requirements(console):
 
 def run_ast_analysis(code_path, console):
     console.print("[bold]1. AST Analysis[/bold]")
-    ast_output_dir = os.path.join(code_path, 'ast_output')
+    ast_output_dir = os.path.join(os.getcwd(), 'ast_output')
     os.makedirs(ast_output_dir, exist_ok=True)
 
     for root, dirs, files in os.walk(code_path):
@@ -125,31 +125,18 @@ def run_cfg_analysis(code_path, console):
 
 def run_call_graph_analysis(code_path, console):
     console.print("[bold]3. Call Graph Analysis[/bold]")
-    call_graph_output_file = os.path.join(code_path, 'call_graph_output')
-    os.makedirs(call_graph_output_file, exist_ok=True)
+    call_graph_output_file = os.path.join(os.getcwd(), 'call_graph' + CALL_GRAPH_OUTPUT_FORMAT)
     try:
-        # Find all .py files
-        py_files = []
-        for root, dirs, files in os.walk(code_path):
-            for file in files:
-                if file.endswith('.py'):
-                    py_files.append(os.path.join(root, file))
-
-        # Run pyan3
-        cmd = ['pyan3'] + py_files + ['--dot', '--colored']
-        dot_output = os.path.join(call_graph_output_file, 'call_graph.dot')
-        with open(dot_output, 'w') as f:
-            subprocess.run(cmd, stdout=f, check=True)
-        # Convert .dot to .png using Graphviz
-        png_output = os.path.join(call_graph_output_file, 'call_graph' + CALL_GRAPH_OUTPUT_FORMAT)
-        subprocess.run(['dot', '-Tpng', dot_output, '-o', png_output], check=True)
-        console.print(f"Call graph saved to [green]{png_output}[/green]")
+        # Use pydeps to generate a call graph
+        cmd = ['pydeps', code_path, '--noshow', '--max-bacon=2', '--show-deps', '-o', call_graph_output_file]
+        subprocess.run(cmd, check=True)
+        console.print(f"Call graph saved to [green]{call_graph_output_file}[/green]")
     except Exception as e:
         console.print(f"[red]Failed to generate call graph: {e}[/red]")
 
 def run_data_flow_analysis(code_path, console):
     console.print("[bold]4. Data Flow Analysis[/bold]")
-    data_flow_output_file = os.path.join(code_path, 'data_flow_analysis' + DATA_FLOW_OUTPUT_FORMAT)
+    data_flow_output_file = os.path.join(os.getcwd(), 'data_flow_analysis' + DATA_FLOW_OUTPUT_FORMAT)
     try:
         cmd = ['mypy', code_path, '--show-error-codes', '--pretty']
         with open(data_flow_output_file, 'w') as f:
@@ -161,7 +148,7 @@ def run_data_flow_analysis(code_path, console):
 
 def run_static_code_analysis(code_path, console):
     console.print("[bold]5. Static Code Analysis (Linter)[/bold]")
-    lint_output_file = os.path.join(code_path, 'lint_report' + LINT_OUTPUT_FORMAT)
+    lint_output_file = os.path.join(os.getcwd(), 'lint_report' + LINT_OUTPUT_FORMAT)
     try:
         cmd = ['pylint', code_path]
         with open(lint_output_file, 'w') as f:
@@ -173,7 +160,7 @@ def run_static_code_analysis(code_path, console):
 
 def run_cyclomatic_complexity_analysis(code_path, console):
     console.print("[bold]6. Cyclomatic Complexity Analysis[/bold]")
-    complexity_output_file = os.path.join(code_path, 'cyclomatic_complexity' + COMPLEXITY_OUTPUT_FORMAT)
+    complexity_output_file = os.path.join(os.getcwd(), 'cyclomatic_complexity' + COMPLEXITY_OUTPUT_FORMAT)
     try:
         cmd = ['radon', 'cc', code_path, '-s']
         with open(complexity_output_file, 'w') as f:
@@ -185,9 +172,9 @@ def run_cyclomatic_complexity_analysis(code_path, console):
 
 def run_dependency_graph_analysis(code_path, console):
     console.print("[bold]7. Dependency Graph Analysis[/bold]")
-    dependency_graph_output_file = os.path.join(code_path, 'dependency_graph' + DEPENDENCY_GRAPH_FORMAT)
+    dependency_graph_output_file = os.path.join(os.getcwd(), 'dependency_graph' + DEPENDENCY_GRAPH_FORMAT)
     try:
-        cmd = ['pydeps', code_path, '--noshow', '--max-bacon=2', '--output', dependency_graph_output_file]
+        cmd = ['pydeps', code_path, '--noshow', '--max-bacon=2', '-o', dependency_graph_output_file]
         subprocess.run(cmd, check=True)
         console.print(f"Dependency graph saved to [green]{dependency_graph_output_file}[/green]")
     except Exception as e:
@@ -195,7 +182,7 @@ def run_dependency_graph_analysis(code_path, console):
 
 def run_code_coverage_analysis(code_path, console):
     console.print("[bold]8. Code Coverage Analysis[/bold]")
-    coverage_output_dir = os.path.join(code_path, 'htmlcov')
+    coverage_output_dir = os.path.join(os.getcwd(), 'htmlcov')
     try:
         # Check if tests directory exists
         tests_dir = os.path.join(code_path, 'tests')
@@ -212,25 +199,52 @@ def run_code_coverage_analysis(code_path, console):
 
 def run_memory_usage_profiling(code_path, console):
     console.print("[bold]9. Memory Usage Profiling[/bold]")
-    console.print(f"[yellow]Memory usage profiling requires running the code, which is not automated in this script.[/yellow]")
+    main_script = Prompt.ask("Enter the path to the main Python script to run for memory profiling")
+    memory_profile_output_file = os.path.join(os.getcwd(), 'memory_profile' + MEMORY_PROFILE_OUTPUT_FORMAT)
+    try:
+        cmd = ['mprof', 'run', '--include-children', 'python', main_script]
+        console.print("[yellow]Running the program for memory profiling. Please interact with it as needed.[/yellow]")
+        subprocess.run(cmd, check=True)
+        cmd = ['mprof', 'plot', '--output', memory_profile_output_file]
+        subprocess.run(cmd, check=True)
+        console.print(f"Memory profile report saved to [green]{memory_profile_output_file}[/green]")
+    except Exception as e:
+        console.print(f"[red]Memory usage profiling failed: {e}[/red]")
 
 def run_execution_profiling(code_path, console):
     console.print("[bold]10. Execution Profiling (Time and Performance)[/bold]")
-    console.print(f"[yellow]Execution profiling requires running the code, which is not automated in this script.[/yellow]")
+    main_script = Prompt.ask("Enter the path to the main Python script to run for execution profiling")
+    performance_profile_output_file = os.path.join(os.getcwd(), 'performance_profile' + PERFORMANCE_PROFILE_OUTPUT_FORMAT)
+    try:
+        cmd = ['python', '-m', 'cProfile', '-o', performance_profile_output_file, main_script]
+        console.print("[yellow]Running the program for execution profiling. Please interact with it as needed.[/yellow]")
+        subprocess.run(cmd, check=True)
+        console.print(f"Performance profile report saved to [green]{performance_profile_output_file}[/green]")
+    except Exception as e:
+        console.print(f"[red]Execution profiling failed: {e}[/red]")
 
 def run_runtime_type_checking(code_path, console):
     console.print("[bold]11. Runtime Type Checking[/bold]")
-    console.print(f"[yellow]Runtime type checking requires running the code with Typeguard, which is not automated in this script.[/yellow]")
+    main_script = Prompt.ask("Enter the path to the main Python script to run with runtime type checking")
+    type_check_output_file = os.path.join(os.getcwd(), 'runtime_type_checking' + TYPE_CHECK_OUTPUT_FORMAT)
+    try:
+        cmd = ['python', '-m', 'typeguard', main_script]
+        console.print("[yellow]Running the program with runtime type checking. Please interact with it as needed.[/yellow]")
+        with open(type_check_output_file, 'w') as f:
+            subprocess.run(cmd, stdout=f, stderr=subprocess.STDOUT, check=False)
+        console.print(f"Type violation logs saved to [green]{type_check_output_file}[/green]")
+    except Exception as e:
+        console.print(f"[red]Runtime type checking failed: {e}[/red]")
 
 def run_class_inheritance_visualization(code_path, console):
     console.print("[bold]12. Class Inheritance/Composition Visualization[/bold]")
     try:
         cmd = ['pyreverse', code_path, '-o', 'png', '-p', 'classes']
-        subprocess.run(cmd, cwd=code_path, check=True)
+        subprocess.run(cmd, check=True)
         # The output files are 'classes_classes.png' and 'classes_packages.png'
         diagram_files = ['classes_classes.png', 'classes_packages.png']
         for diagram in diagram_files:
-            diagram_path = os.path.join(code_path, diagram)
+            diagram_path = os.path.join(os.getcwd(), diagram)
             if os.path.exists(diagram_path):
                 console.print(f"Class diagram saved to [green]{diagram_path}[/green]")
             else:
@@ -240,7 +254,7 @@ def run_class_inheritance_visualization(code_path, console):
 
 def run_semantic_code_analysis(code_path, console):
     console.print("[bold]13. Semantic Code Analysis[/bold]")
-    semantic_output_file = os.path.join(code_path, 'semantic_analysis' + SEMANTIC_ANALYSIS_FORMAT)
+    semantic_output_file = os.path.join(os.getcwd(), 'semantic_analysis' + SEMANTIC_ANALYSIS_FORMAT)
     try:
         cmd = ['mypy', code_path]
         with open(semantic_output_file, 'w') as f:
